@@ -109,4 +109,4 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for beginner-friendly fix
 
 ## License
 
-GPL-3.0
+MIT
