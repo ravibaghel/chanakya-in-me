@@ -2,6 +2,12 @@
 
 This guide is written for non-technical users. Try the matching fix, then refresh LocalCoach AI in your browser.
 
+## One-Click Script Does Not Start
+
+Make sure Node.js is installed first. Download the LTS version from [nodejs.org](https://nodejs.org/), restart your terminal or computer, then double-click `START_LOCALCOACH_AI.cmd` again.
+
+If Windows blocks the script, right-click `START_LOCALCOACH_AI.cmd`, choose **Run as administrator**, and try again.
+
 ## LocalCoach Says The Runtime Needs Attention
 
 Your local model app is probably not running.

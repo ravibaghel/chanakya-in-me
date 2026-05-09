@@ -23,7 +23,25 @@ Most local AI tools focus on installing, downloading, or chatting with models. L
   - [Ollama](https://ollama.com/) for the easiest start
   - [LM Studio](https://lmstudio.ai/) or another OpenAI-compatible local server
 
-## Quick Start With Ollama
+## One-Click Start
+
+On Windows, double-click:
+
+```text
+START_LOCALCOACH_AI.cmd
+```
+
+The script checks Node.js, installs Ollama if needed, downloads `llama3.2:3b`, installs LocalCoach AI dependencies, starts the app, and opens your default browser.
+
+On macOS or Linux, run:
+
+```bash
+bash scripts/start-localcoach.sh
+```
+
+If Node.js is not installed yet, install the LTS version from [nodejs.org](https://nodejs.org/) and run the script again.
+
+## Manual Quick Start With Ollama
 
 1. Install Node.js from [nodejs.org](https://nodejs.org/).
 2. Install Ollama from [ollama.com](https://ollama.com/).
