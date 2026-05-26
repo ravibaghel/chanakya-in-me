@@ -13,7 +13,8 @@ describe('one-click launcher scripts', () => {
     const script = readFileSync('scripts/start-localcoach.ps1', 'utf8');
 
     expect(script).toContain('OllamaSetup.exe');
-    expect(script).toContain('ollama pull llama3.2:3b');
+    expect(script).toContain('"llama3.2:3b"');
+    expect(script).toContain('ollama pull $ModelName');
     expect(script).toContain('npm install');
     expect(script).toContain('npm run dev');
     expect(script).toContain('Start-Process "http://127.0.0.1:5173"');
@@ -23,9 +24,27 @@ describe('one-click launcher scripts', () => {
     const script = readFileSync('scripts/start-localcoach.sh', 'utf8');
 
     expect(script).toContain('https://ollama.com/install.sh');
-    expect(script).toContain('ollama pull llama3.2:3b');
+    expect(script).toContain('MODEL_NAME="llama3.2:3b"');
+    expect(script).toContain('ollama pull $MODEL_NAME');
     expect(script).toContain('npm install');
     expect(script).toContain('npm run dev');
     expect(script).toContain('http://127.0.0.1:5173');
+  });
+
+  it('provides a Windows vision launcher that pulls the optional vision model', () => {
+    const entrypoint = readFileSync('START_LOCALCOACH_AI_WITH_VISION.cmd', 'utf8');
+    const script = readFileSync('scripts/start-localcoach.ps1', 'utf8');
+
+    expect(entrypoint).toContain('-Vision');
+    expect(script).toContain('llama3.2-vision:11b');
+    expect(script).toContain('LOCALCOACH_MODEL=$ModelName');
+  });
+
+  it('provides a macOS/Linux vision flag that pulls the optional vision model', () => {
+    const script = readFileSync('scripts/start-localcoach.sh', 'utf8');
+
+    expect(script).toContain('--vision');
+    expect(script).toContain('llama3.2-vision:11b');
+    expect(script).toContain('LOCALCOACH_MODEL=$MODEL_NAME');
   });
 });

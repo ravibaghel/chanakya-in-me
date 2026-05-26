@@ -92,6 +92,18 @@ For screenshots, use a local vision model:
 ollama pull llama3.2-vision:11b
 ```
 
+On Windows you can also double-click:
+
+```text
+START_LOCALCOACH_AI_WITH_VISION.cmd
+```
+
+On macOS or Linux:
+
+```bash
+bash scripts/start-localcoach.sh --vision
+```
+
 Then set `.env`:
 
 ```bash

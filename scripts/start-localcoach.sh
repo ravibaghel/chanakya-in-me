@@ -3,6 +3,9 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODEL_NAME="llama3.2:3b"
+if [ "${1:-}" = "--vision" ]; then
+  MODEL_NAME="llama3.2-vision:11b"
+fi
 APP_URL="http://127.0.0.1:5173"
 API_URL="http://127.0.0.1:4317/api/runtimes/status"
 
@@ -53,13 +56,18 @@ if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   sleep 3
 fi
 
-step "Downloading the default free model"
-echo "ollama pull llama3.2:3b"
+step "Downloading the selected free model"
+echo "ollama pull $MODEL_NAME"
 ollama pull "$MODEL_NAME"
 
 step "Preparing LocalCoach settings"
 if [ ! -f .env ]; then
   cp .env.example .env
+fi
+if grep -q '^LOCALCOACH_MODEL=' .env; then
+  node -e "const fs=require('fs'); const file='.env'; const model=process.argv[1]; fs.writeFileSync(file, fs.readFileSync(file,'utf8').replace(/^LOCALCOACH_MODEL=.*$/m, 'LOCALCOACH_MODEL='+model));" "$MODEL_NAME"
+else
+  printf "\nLOCALCOACH_MODEL=$MODEL_NAME\n" >> .env
 fi
 
 step "Installing LocalCoach AI dependencies"

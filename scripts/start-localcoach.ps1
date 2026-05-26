@@ -1,7 +1,11 @@
+param(
+  [switch]$Vision
+)
+
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$ModelName = "llama3.2:3b"
+$ModelName = if ($Vision) { "llama3.2-vision:11b" } else { "llama3.2:3b" }
 $AppUrl = "http://127.0.0.1:5173"
 $ApiUrl = "http://127.0.0.1:4317/api/runtimes/status"
 
@@ -79,8 +83,8 @@ try {
   Start-Sleep -Seconds 3
 }
 
-Write-Step "Downloading the default free model"
-$PullCommand = "ollama pull llama3.2:3b"
+Write-Step "Downloading the selected free model"
+$PullCommand = "ollama pull $ModelName"
 Write-Host $PullCommand
 & $OllamaCommand pull $ModelName
 
@@ -88,6 +92,13 @@ Write-Step "Preparing LocalCoach settings"
 if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
 }
+$EnvContent = Get-Content ".env" -Raw
+if ($EnvContent -match "LOCALCOACH_MODEL=") {
+  $EnvContent = $EnvContent -replace "LOCALCOACH_MODEL=.*", "LOCALCOACH_MODEL=$ModelName"
+} else {
+  $EnvContent = "$EnvContent`nLOCALCOACH_MODEL=$ModelName"
+}
+Set-Content -Path ".env" -Value $EnvContent
 
 Write-Step "Installing LocalCoach AI dependencies"
 npm install

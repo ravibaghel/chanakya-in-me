@@ -35,10 +35,24 @@ START_LOCALCOACH_AI.cmd
 
 The script checks Node.js, installs Ollama if needed, downloads `llama3.2:3b`, installs LocalCoach AI dependencies, starts the app, and opens your default browser.
 
+For screenshot questions, double-click:
+
+```text
+START_LOCALCOACH_AI_WITH_VISION.cmd
+```
+
+That optional launcher downloads `llama3.2-vision:11b` and updates `.env` so images can be understood locally.
+
 On macOS or Linux, run:
 
 ```bash
 bash scripts/start-localcoach.sh
+```
+
+For screenshot questions on macOS or Linux, run:
+
+```bash
+bash scripts/start-localcoach.sh --vision
 ```
 
 If Node.js is not installed yet, install the LTS version from [nodejs.org](https://nodejs.org/) and run the script again.
@@ -99,7 +113,7 @@ You can paste screenshots directly into the message box, or use **Add screenshot
 - Images: PNG, JPG, GIF, WebP
 - Documents: TXT, Markdown, PDF, DOCX
 
-TXT, PDF, and DOCX files are read locally by the LocalCoach API and sent to your selected model as text context. Images are sent to the model as image attachments, so screenshot questions require a local vision model such as `llama3.2-vision:11b` or another vision-capable Ollama/LM Studio model.
+TXT, PDF, and DOCX files are read locally by the LocalCoach API and sent to your selected model as text context. Images are sent to the model as image attachments, so screenshot questions require a local vision model such as `llama3.2-vision:11b` or another vision-capable Ollama/LM Studio model. If you attach a screenshot while using `llama3.2:3b`, LocalCoach will show a warning and wait until you switch to a vision model.
 
 For image questions with Ollama, update `.env`:
 

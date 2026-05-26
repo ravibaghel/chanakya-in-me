@@ -367,6 +367,29 @@ h2 {
   font-size: 0.9rem;
 }
 
+.vision-warning {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(164, 73, 56, 0.26);
+  border-radius: 8px;
+  color: #652c22;
+  background: #fff5f2;
+  font-size: 0.9rem;
+}
+
+.vision-warning span {
+  line-height: 1.5;
+}
+
+.vision-warning code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(164, 73, 56, 0.1);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.84rem;
+}
+
 .attachment-list {
   display: flex;
   gap: 8px;
