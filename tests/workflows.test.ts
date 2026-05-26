@@ -34,6 +34,18 @@ describe('workflow prompt builders', () => {
     expect(messages[0].content).toContain('Resume bullet improver');
   });
 
+  it('includes attachment context when present', () => {
+    const messages = buildCoachMessages({
+      workflowId: 'explain-document',
+      userText: 'What are the main risks?',
+      attachmentContext: 'Attached file: policy.txt\nPolicy text here.',
+      history: []
+    });
+
+    expect(messages[1].content).toContain('Attached material:');
+    expect(messages[1].content).toContain('Policy text here.');
+  });
+
   it('rejects unknown workflow ids before a runtime call is made', () => {
     expect(() =>
       buildCoachMessages({

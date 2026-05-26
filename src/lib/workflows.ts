@@ -3,6 +3,7 @@ export type ChatRole = 'system' | 'user' | 'assistant';
 export type ChatMessage = {
   role: ChatRole;
   content: string;
+  images?: string[];
 };
 
 export type Workflow = {
@@ -92,14 +93,20 @@ export function getWorkflow(workflowId: string): Workflow {
 export function buildCoachMessages(input: {
   workflowId: string;
   userText: string;
+  attachmentContext?: string;
+  images?: string[];
   history?: ChatMessage[];
 }): ChatMessage[] {
   const workflow = getWorkflow(input.workflowId);
   const trimmedText = input.userText.trim();
 
-  if (!trimmedText) {
-    throw new Error('userText is required');
+  if (!trimmedText && !input.attachmentContext && !input.images?.length) {
+    throw new Error('userText or attachment is required');
   }
+
+  const attachmentSection = input.attachmentContext
+    ? `\n\nAttached material:\n${input.attachmentContext.trim()}`
+    : '';
 
   return [
     {
@@ -115,7 +122,8 @@ export function buildCoachMessages(input: {
     ...(input.history ?? []).filter((message) => message.role !== 'system'),
     {
       role: 'user',
-      content: `${workflow.userFrame}\n\nUser input:\n${trimmedText}`
+      content: `${workflow.userFrame}${attachmentSection}\n\nUser input:\n${trimmedText || 'Please help with the attached material.'}`,
+      images: input.images
     }
   ];
 }

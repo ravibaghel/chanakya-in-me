@@ -82,6 +82,24 @@ npm run dev
 
 Keep that terminal open while using LocalCoach AI.
 
+## Screenshot Questions Do Not Work
+
+The default `llama3.2:3b` model is a text model. It can use uploaded TXT, PDF, and DOCX text, but it cannot understand images.
+
+For screenshots, use a local vision model:
+
+```bash
+ollama pull llama3.2-vision:11b
+```
+
+Then set `.env`:
+
+```bash
+LOCALCOACH_MODEL=llama3.2-vision:11b
+```
+
+Restart LocalCoach AI after changing `.env`.
+
 ## Change From Ollama To LM Studio
 
 Edit `.env`:

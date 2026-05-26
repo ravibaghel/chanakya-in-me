@@ -50,6 +50,29 @@ describe('LocalCoach AI app', () => {
     );
   });
 
+  it('adds pasted screenshots as attachments before asking the coach', async () => {
+    mockFetch({
+      '/api/runtimes/status': {
+        available: true,
+        runtime: 'ollama',
+        baseUrl: 'http://localhost:11434',
+        model: 'llama3.2-vision:11b'
+      },
+      '/api/models': { models: ['llama3.2-vision:11b'] },
+      '/api/chat': 'The screenshot shows a dashboard.'
+    });
+
+    render(<App />);
+    const file = new File(['fake image'], 'screen.png', { type: 'image/png' });
+    fireEvent.paste(await screen.findByLabelText('What do you want help with?'), {
+      clipboardData: {
+        files: [file]
+      }
+    });
+
+    expect(await screen.findByText('screen.png')).toBeInTheDocument();
+  });
+
   it('shows a beginner-friendly offline message', async () => {
     mockFetch({
       '/api/runtimes/status': {

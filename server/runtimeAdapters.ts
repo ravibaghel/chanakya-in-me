@@ -5,6 +5,7 @@ export type ChatRole = 'system' | 'user' | 'assistant';
 export type ChatMessage = {
   role: ChatRole;
   content: string;
+  images?: string[];
 };
 
 export type RuntimeConfig = {
@@ -67,7 +68,17 @@ function createOllamaAdapter(config: RuntimeConfig, fetchImpl: FetchLike): Runti
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: config.model,
-          messages,
+          messages: messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+            ...(message.images?.length
+              ? {
+                  images: message.images.map((image) =>
+                    image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '')
+                  )
+                }
+              : {})
+          })),
           stream: true
         })
       });
@@ -104,7 +115,7 @@ function createOpenAiCompatibleAdapter(config: RuntimeConfig, fetchImpl: FetchLi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: config.model,
-          messages,
+          messages: messages.map(toOpenAiMessage),
           stream: true
         })
       });
@@ -125,6 +136,26 @@ function createOpenAiCompatibleAdapter(config: RuntimeConfig, fetchImpl: FetchLi
         if (content) yield content;
       }
     }
+  };
+}
+
+function toOpenAiMessage(message: ChatMessage) {
+  if (!message.images?.length) {
+    return {
+      role: message.role,
+      content: message.content
+    };
+  }
+
+  return {
+    role: message.role,
+    content: [
+      { type: 'text', text: message.content },
+      ...message.images.map((image) => ({
+        type: 'image_url',
+        image_url: { url: image }
+      }))
+    ]
   };
 }
 

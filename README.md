@@ -14,6 +14,8 @@ Most local AI tools focus on installing, downloading, or chatting with models. L
 - Study a topic
 - Translate or simplify text
 - Brainstorm ideas with tradeoffs and next steps
+- Paste screenshots or upload images for vision-capable local models
+- Upload TXT, PDF, or DOCX files so LocalCoach can use their text as context
 
 ## Requirements
 
@@ -89,6 +91,27 @@ LOCALCOACH_PORT=4317
 ```
 
 In LM Studio, download a chat model and start the local server. LocalCoach AI will call `/v1/models` and `/v1/chat/completions` on that local server.
+
+## Screenshots And Files
+
+You can paste screenshots directly into the message box, or use **Add screenshot or file** to upload:
+
+- Images: PNG, JPG, GIF, WebP
+- Documents: TXT, Markdown, PDF, DOCX
+
+TXT, PDF, and DOCX files are read locally by the LocalCoach API and sent to your selected model as text context. Images are sent to the model as image attachments, so screenshot questions require a local vision model such as `llama3.2-vision:11b` or another vision-capable Ollama/LM Studio model.
+
+For image questions with Ollama, update `.env`:
+
+```bash
+LOCALCOACH_MODEL=llama3.2-vision:11b
+```
+
+Then download the model:
+
+```bash
+ollama pull llama3.2-vision:11b
+```
 
 ## Scripts
 

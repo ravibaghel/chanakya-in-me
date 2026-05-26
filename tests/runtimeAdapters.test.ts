@@ -57,6 +57,24 @@ describe('runtime adapters', () => {
     );
   });
 
+  it('sends image attachments to Ollama using message images', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"message":{"content":"ok"}}\n'));
+    const adapter = createRuntimeAdapter(config('ollama'), fetchMock);
+
+    for await (const _chunk of adapter.chat([
+      {
+        role: 'user',
+        content: 'What is on this screen?',
+        images: ['abc123']
+      }
+    ])) {
+      // drain stream
+    }
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.messages[0].images).toEqual(['abc123']);
+  });
+
   it('uses OpenAI-compatible endpoints for local servers like LM Studio', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({
@@ -69,6 +87,29 @@ describe('runtime adapters', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://local.test/v1/models', {
       signal: expect.any(AbortSignal)
     });
+  });
+
+  it('sends image attachments to OpenAI-compatible local servers as image_url parts', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n')
+    );
+    const adapter = createRuntimeAdapter(config('openai-compatible'), fetchMock);
+
+    for await (const _chunk of adapter.chat([
+      {
+        role: 'user',
+        content: 'What is on this screen?',
+        images: ['data:image/png;base64,abc123']
+      }
+    ])) {
+      // drain stream
+    }
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'What is on this screen?' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } }
+    ]);
   });
 });
 

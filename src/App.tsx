@@ -1,14 +1,21 @@
 import {
   BookOpen,
+  FileUp,
   FileText,
+  Image,
   Languages,
   Lightbulb,
   MessageSquareText,
+  Paperclip,
   RefreshCw,
   Send,
   Sparkles
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  getAttachmentKind,
+  type CoachAttachment
+} from './lib/attachments';
 import { getWorkflow, workflows, type Workflow } from './lib/workflows';
 
 type RuntimeStatus = {
@@ -38,6 +45,8 @@ export default function App() {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<CoachAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState('');
   const [chat, setChat] = useState<ChatEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,11 +72,19 @@ export default function App() {
   async function askCoach(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || isLoading) return;
+    if ((!text && attachments.length === 0) || isLoading) return;
 
-    const nextChat: ChatEntry[] = [...chat, { role: 'user', content: text }];
+    const attachmentSummary =
+      attachments.length > 0
+        ? `\n\nAttached: ${attachments.map((attachment) => attachment.name).join(', ')}`
+        : '';
+    const nextChat: ChatEntry[] = [
+      ...chat,
+      { role: 'user', content: `${text || 'Please help with the attached material.'}${attachmentSummary}` }
+    ];
     setChat(nextChat);
     setInput('');
+    setAttachments([]);
     setIsLoading(true);
 
     const response = await fetch('/api/chat', {
@@ -76,6 +93,7 @@ export default function App() {
       body: JSON.stringify({
         workflowId: selectedWorkflowId,
         userText: text,
+        attachments,
         history: chat.slice(-6)
       })
     });
@@ -83,6 +101,68 @@ export default function App() {
     const answer = await response.text();
     setChat([...nextChat, { role: 'assistant', content: answer.trim() }]);
     setIsLoading(false);
+  }
+
+  async function addFiles(files: FileList | File[]) {
+    setAttachmentError('');
+    const incomingFiles = Array.from(files);
+    const nextAttachments: CoachAttachment[] = [];
+
+    for (const file of incomingFiles) {
+      const kind = getAttachmentKind(file.name, file.type);
+      if (!kind) {
+        setAttachmentError(`${file.name} is not supported yet.`);
+        continue;
+      }
+
+      if (kind === 'image') {
+        nextAttachments.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          kind,
+          mimeType: file.type,
+          dataUrl: await readFileAsDataUrl(file)
+        });
+        continue;
+      }
+
+      if (kind === 'text') {
+        nextAttachments.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          kind,
+          mimeType: file.type || 'text/plain',
+          text: await file.text()
+        });
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/attachments/extract', {
+        method: 'POST',
+        body: formData
+      });
+      const extracted = (await response.json()) as Omit<CoachAttachment, 'id'> & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setAttachmentError(extracted.error ?? `Could not read ${file.name}.`);
+        continue;
+      }
+
+      nextAttachments.push({
+        id: crypto.randomUUID(),
+        ...extracted
+      });
+    }
+
+    setAttachments((current) => [...current, ...nextAttachments]);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((attachment) => attachment.id !== id));
   }
 
   return (
@@ -162,10 +242,58 @@ export default function App() {
               id="coach-input"
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              onPaste={(event) => {
+                if (event.clipboardData.files.length > 0) {
+                  event.preventDefault();
+                  void addFiles(event.clipboardData.files);
+                }
+              }}
               placeholder={selectedWorkflow.placeholder}
               rows={5}
             />
-            <button type="submit" disabled={!input.trim() || isLoading}>
+            <div className="attachment-bar">
+              <label className="attach-button" htmlFor="attachment-input">
+                <Paperclip aria-hidden="true" size={17} />
+                Add screenshot or file
+              </label>
+              <input
+                id="attachment-input"
+                type="file"
+                multiple
+                accept="image/*,.txt,.md,.pdf,.docx"
+                onChange={(event) => {
+                  if (event.target.files) {
+                    void addFiles(event.target.files);
+                  }
+                  event.currentTarget.value = '';
+                }}
+              />
+              <span>Paste screenshots, or upload TXT, PDF, DOCX, PNG, JPG.</span>
+            </div>
+            {attachmentError ? <p className="attachment-error">{attachmentError}</p> : null}
+            {attachments.length > 0 ? (
+              <div className="attachment-list" aria-label="Attached files">
+                {attachments.map((attachment) => (
+                  <button
+                    key={attachment.id}
+                    type="button"
+                    className="attachment-chip"
+                    onClick={() => removeAttachment(attachment.id)}
+                    title="Remove attachment"
+                  >
+                    {attachment.kind === 'image' ? (
+                      <Image aria-hidden="true" size={16} />
+                    ) : attachment.kind === 'pdf' || attachment.kind === 'word' ? (
+                      <FileUp aria-hidden="true" size={16} />
+                    ) : (
+                      <FileText aria-hidden="true" size={16} />
+                    )}
+                    <span>{attachment.name}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button type="submit" disabled={(!input.trim() && attachments.length === 0) || isLoading}>
               <Send aria-hidden="true" size={18} />
               Ask LocalCoach
             </button>
@@ -174,6 +302,15 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 function WorkflowButton({
