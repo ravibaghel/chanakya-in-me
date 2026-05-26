@@ -1,9 +1,23 @@
 import { Router } from 'express';
+import multer from 'multer';
+import {
+  buildAttachmentContext,
+  getAttachmentKind,
+  getImagePayloads,
+  type CoachAttachment
+} from '../src/lib/attachments';
 import { buildCoachMessages } from '../src/lib/workflows';
+import { extractTextFromUpload } from './extractAttachments';
 import type { RuntimeAdapter } from './runtimeAdapters';
 
 export function createApiRouter(runtimeAdapter: RuntimeAdapter) {
   const router = Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024
+    }
+  });
 
   router.get('/runtimes/status', async (_request, response) => {
     const status = await runtimeAdapter.status();
@@ -29,9 +43,10 @@ export function createApiRouter(runtimeAdapter: RuntimeAdapter) {
   });
 
   router.post('/chat', async (request, response) => {
-    const { workflowId, userText, history } = request.body as {
+    const { workflowId, userText, history, attachments } = request.body as {
       workflowId?: string;
       userText?: string;
+      attachments?: CoachAttachment[];
       history?: Array<{ role: 'assistant' | 'user'; content: string }>;
     };
 
@@ -40,8 +55,8 @@ export function createApiRouter(runtimeAdapter: RuntimeAdapter) {
       return;
     }
 
-    if (!userText?.trim()) {
-      response.status(400).json({ error: 'userText is required' });
+    if (!userText?.trim() && !attachments?.length) {
+      response.status(400).json({ error: 'userText or attachment is required' });
       return;
     }
 
@@ -49,7 +64,9 @@ export function createApiRouter(runtimeAdapter: RuntimeAdapter) {
     try {
       messages = buildCoachMessages({
         workflowId,
-        userText,
+        userText: userText ?? '',
+        attachmentContext: buildAttachmentContext(attachments ?? []),
+        images: getImagePayloads(attachments ?? []),
         history: history ?? []
       });
     } catch (error) {
@@ -76,6 +93,45 @@ export function createApiRouter(runtimeAdapter: RuntimeAdapter) {
           error instanceof Error ? error.message : 'Please check your local model server.'
         }`
       );
+    }
+  });
+
+  router.post('/attachments/extract', upload.single('file'), async (request, response) => {
+    if (!request.file) {
+      response.status(400).json({ error: 'file is required' });
+      return;
+    }
+
+    const kind = getAttachmentKind(request.file.originalname, request.file.mimetype);
+    if (!kind) {
+      response.status(400).json({ error: 'Unsupported file type' });
+      return;
+    }
+
+    if (kind === 'image') {
+      response.json({
+        name: request.file.originalname,
+        kind,
+        mimeType: request.file.mimetype
+      });
+      return;
+    }
+
+    try {
+      response.json({
+        name: request.file.originalname,
+        kind,
+        mimeType: request.file.mimetype,
+        text: await extractTextFromUpload({
+          buffer: request.file.buffer,
+          kind,
+          mimeType: request.file.mimetype
+        })
+      });
+    } catch (error) {
+      response.status(422).json({
+        error: error instanceof Error ? error.message : 'Unable to extract text'
+      });
     }
   });
 

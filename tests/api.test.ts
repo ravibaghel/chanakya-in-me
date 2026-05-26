@@ -61,16 +61,47 @@ describe('localcoach api', () => {
     expect(response.body.error).toContain('userText');
   });
 
-  it('streams chat text from the selected runtime', async () => {
+  it('streams chat text from the selected runtime with attachments', async () => {
     const app = testApp(adapter({ chunks: ['First', ' second'] }));
 
     const response = await request(app)
       .post('/api/chat')
-      .send({ workflowId: 'brainstorm', userText: 'Community project ideas' })
+      .send({
+        workflowId: 'brainstorm',
+        userText: 'Community project ideas',
+        attachments: [
+          {
+            id: 'a1',
+            name: 'notes.txt',
+            kind: 'text',
+            mimeType: 'text/plain',
+            text: 'Local-first upload support'
+          }
+        ]
+      })
       .expect(200);
 
     expect(response.text).toBe('First second');
     expect(response.headers['content-type']).toContain('text/plain');
+  });
+
+  it('extracts uploaded text files into attachment context', async () => {
+    const app = testApp(adapter({}));
+
+    const response = await request(app)
+      .post('/api/attachments/extract')
+      .attach('file', Buffer.from('Uploaded notes'), {
+        filename: 'notes.txt',
+        contentType: 'text/plain'
+      })
+      .expect(200);
+
+    expect(response.body).toEqual({
+      name: 'notes.txt',
+      kind: 'text',
+      mimeType: 'text/plain',
+      text: 'Uploaded notes'
+    });
   });
 });
 
