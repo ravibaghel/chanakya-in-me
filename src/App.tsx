@@ -16,6 +16,7 @@ import {
   getAttachmentKind,
   type CoachAttachment
 } from './lib/attachments';
+import { hasImageAttachments, isVisionModel } from './lib/modelCapabilities';
 import { getWorkflow, workflows, type Workflow } from './lib/workflows';
 
 type RuntimeStatus = {
@@ -54,6 +55,12 @@ export default function App() {
     () => getWorkflow(selectedWorkflowId),
     [selectedWorkflowId]
   );
+  const attachedImagesNeedVision =
+    hasImageAttachments(attachments) && !isVisionModel(runtimeStatus?.model);
+  const canAskCoach =
+    !isLoading &&
+    (input.trim().length > 0 || attachments.length > 0) &&
+    !attachedImagesNeedVision;
 
   useEffect(() => {
     void refreshRuntime();
@@ -72,7 +79,7 @@ export default function App() {
   async function askCoach(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if ((!text && attachments.length === 0) || isLoading) return;
+    if (!canAskCoach) return;
 
     const attachmentSummary =
       attachments.length > 0
@@ -132,7 +139,7 @@ export default function App() {
           name: file.name,
           kind,
           mimeType: file.type || 'text/plain',
-          text: await file.text()
+          text: await readFileAsText(file)
         });
         continue;
       }
@@ -271,6 +278,16 @@ export default function App() {
               <span>Paste screenshots, or upload TXT, PDF, DOCX, PNG, JPG.</span>
             </div>
             {attachmentError ? <p className="attachment-error">{attachmentError}</p> : null}
+            {attachedImagesNeedVision ? (
+              <div className="vision-warning" role="alert">
+                <strong>Screenshots need a vision model.</strong>
+                <span>
+                  Run <code>ollama pull llama3.2-vision:11b</code> and set{' '}
+                  <code>LOCALCOACH_MODEL=llama3.2-vision:11b</code>, or use{' '}
+                  <code>START_LOCALCOACH_AI_WITH_VISION.cmd</code>.
+                </span>
+              </div>
+            ) : null}
             {attachments.length > 0 ? (
               <div className="attachment-list" aria-label="Attached files">
                 {attachments.map((attachment) => (
@@ -293,7 +310,7 @@ export default function App() {
                 ))}
               </div>
             ) : null}
-            <button type="submit" disabled={(!input.trim() && attachments.length === 0) || isLoading}>
+            <button type="submit" disabled={!canAskCoach}>
               <Send aria-hidden="true" size={18} />
               Ask LocalCoach
             </button>
@@ -310,6 +327,19 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file: File): Promise<string> {
+  if (typeof file.text === 'function') {
+    return file.text();
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
   });
 }
 

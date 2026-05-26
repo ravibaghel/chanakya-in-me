@@ -73,6 +73,52 @@ describe('LocalCoach AI app', () => {
     expect(await screen.findByText('screen.png')).toBeInTheDocument();
   });
 
+  it('warns and blocks image questions when the active model is text-only', async () => {
+    mockFetch({
+      '/api/runtimes/status': {
+        available: true,
+        runtime: 'ollama',
+        baseUrl: 'http://localhost:11434',
+        model: 'llama3.2:3b'
+      },
+      '/api/models': { models: ['llama3.2:3b'] }
+    });
+
+    render(<App />);
+    const file = new File(['fake image'], 'screen.png', { type: 'image/png' });
+    fireEvent.paste(await screen.findByLabelText('What do you want help with?'), {
+      clipboardData: {
+        files: [file]
+      }
+    });
+
+    expect(await screen.findByText('screen.png')).toBeInTheDocument();
+    expect(screen.getByText(/Screenshots need a vision model/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask LocalCoach' })).toBeDisabled();
+  });
+
+  it('allows text file questions with a text-only model', async () => {
+    mockFetch({
+      '/api/runtimes/status': {
+        available: true,
+        runtime: 'ollama',
+        baseUrl: 'http://localhost:11434',
+        model: 'llama3.2:3b'
+      },
+      '/api/models': { models: ['llama3.2:3b'] }
+    });
+
+    render(<App />);
+    const file = new File(['Study notes'], 'notes.txt', { type: 'text/plain' });
+    fireEvent.change(await screen.findByLabelText('Add screenshot or file'), {
+      target: { files: [file] }
+    });
+
+    expect(await screen.findByText('notes.txt')).toBeInTheDocument();
+    expect(screen.queryByText(/Screenshots need a vision model/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask LocalCoach' })).toBeEnabled();
+  });
+
   it('shows a beginner-friendly offline message', async () => {
     mockFetch({
       '/api/runtimes/status': {
