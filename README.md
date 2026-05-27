@@ -102,6 +102,7 @@ LOCALCOACH_RUNTIME=openai-compatible
 LOCALCOACH_BASE_URL=http://localhost:1234
 LOCALCOACH_MODEL=your-local-model-name
 LOCALCOACH_PORT=4317
+LOCALCOACH_CHAT_TIMEOUT_MS=120000
 ```
 
 In LM Studio, download a chat model and start the local server. LocalCoach AI will call `/v1/models` and `/v1/chat/completions` on that local server.
@@ -126,6 +127,8 @@ Then download the model:
 ```bash
 ollama pull llama3.2-vision:11b
 ```
+
+Vision models are much larger than the default text model. If a screenshot question keeps thinking for a long time, LocalCoach stops waiting after `LOCALCOACH_CHAT_TIMEOUT_MS` and shows a local-machine guidance message instead of silently hanging.
 
 ## Scripts
 

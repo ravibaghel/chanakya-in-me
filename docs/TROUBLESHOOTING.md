@@ -61,6 +61,8 @@ ollama pull llama3.2:3b
 
 Avoid very large models unless your computer has enough memory.
 
+If a vision request waits too long, LocalCoach stops the request after `LOCALCOACH_CHAT_TIMEOUT_MS` milliseconds. The default is 120000, which is two minutes. You can raise this in `.env` on slower computers, but a timeout often means the model is too large for the machine.
+
 ## Out Of Memory Or Crashes
 
 Use a smaller model. A 3B model is a safer first choice than a 7B, 13B, or larger model.
@@ -111,6 +113,8 @@ LOCALCOACH_MODEL=llama3.2-vision:11b
 ```
 
 Restart LocalCoach AI after changing `.env`.
+
+If `llama3.2-vision:11b` stays on "thinking" and then times out, your computer may not have enough memory or CPU/GPU power for that model. Switch back to `LOCALCOACH_MODEL=llama3.2:3b` for text tasks, or try a smaller local vision model if you have one installed.
 
 ## Change From Ollama To LM Studio
 

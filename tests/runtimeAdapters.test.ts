@@ -75,6 +75,25 @@ describe('runtime adapters', () => {
     expect(body.messages[0].images).toEqual(['abc123']);
   });
 
+  it('stops waiting for a slow Ollama chat request with beginner-friendly guidance', async () => {
+    const fetchMock = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        })
+    );
+    const adapter = createRuntimeAdapter(
+      { ...config('ollama'), chatTimeoutMs: 1 },
+      fetchMock as typeof fetch
+    );
+
+    await expect(adapter.chat(messages).next()).rejects.toThrow(
+      /timed out waiting for Ollama/i
+    );
+  });
+
   it('uses OpenAI-compatible endpoints for local servers like LM Studio', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({

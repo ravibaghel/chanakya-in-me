@@ -50,6 +50,42 @@ describe('LocalCoach AI app', () => {
     );
   });
 
+  it('shows a helpful message and clears loading when chat fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      const path = new URL(url, 'http://localhost').pathname;
+
+      if (path === '/api/runtimes/status') {
+        return Response.json({
+          available: true,
+          runtime: 'ollama',
+          baseUrl: 'http://localhost:11434',
+          model: 'llama3.2:3b'
+        });
+      }
+
+      if (path === '/api/models') {
+        return Response.json({ models: ['llama3.2:3b'] });
+      }
+
+      throw new Error('network failed');
+    });
+
+    render(<App />);
+    fireEvent.change(await screen.findByLabelText('What do you want help with?'), {
+      target: { value: 'Help me' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LocalCoach' }));
+
+    expect(await screen.findByText(/LocalCoach could not get a response/i)).toBeInTheDocument();
+    expect(screen.queryByText(/LocalCoach is thinking locally/i)).not.toBeInTheDocument();
+  });
+
   it('adds pasted screenshots as attachments before asking the coach', async () => {
     mockFetch({
       '/api/runtimes/status': {

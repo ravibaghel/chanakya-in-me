@@ -12,6 +12,7 @@ export type RuntimeConfig = {
   runtime: RuntimeName;
   baseUrl: string;
   model: string;
+  chatTimeoutMs?: number;
 };
 
 export type RuntimeStatus = RuntimeConfig & {
@@ -46,7 +47,8 @@ export function readRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     baseUrl:
       env.LOCALCOACH_BASE_URL?.replace(/\/$/, '') ??
       (runtime === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234'),
-    model: env.LOCALCOACH_MODEL ?? 'llama3.2:3b'
+    model: env.LOCALCOACH_MODEL ?? 'llama3.2:3b',
+    chatTimeoutMs: readChatTimeout(env.LOCALCOACH_CHAT_TIMEOUT_MS)
   };
 }
 
@@ -63,7 +65,7 @@ function createOllamaAdapter(config: RuntimeConfig, fetchImpl: FetchLike): Runti
       return (body.models ?? []).map((model) => model.name).filter(Boolean) as string[];
     },
     chat: async function* (messages) {
-      const response = await fetchImpl(`${config.baseUrl}/api/chat`, {
+      const response = await fetchChatWithTimeout(config, fetchImpl, `${config.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,15 +112,20 @@ function createOpenAiCompatibleAdapter(config: RuntimeConfig, fetchImpl: FetchLi
       return (body.data ?? []).map((model) => model.id).filter(Boolean) as string[];
     },
     chat: async function* (messages) {
-      const response = await fetchImpl(`${config.baseUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: config.model,
-          messages: messages.map(toOpenAiMessage),
-          stream: true
-        })
-      });
+      const response = await fetchChatWithTimeout(
+        config,
+        fetchImpl,
+        `${config.baseUrl}/v1/chat/completions`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: config.model,
+            messages: messages.map(toOpenAiMessage),
+            stream: true
+          })
+        }
+      );
 
       if (!response.ok || !response.body) {
         throw new Error(`Local OpenAI-compatible chat failed with status ${response.status}`);
@@ -186,6 +193,49 @@ function fetchWithTimeout(url: string, fetchImpl: FetchLike) {
   const timeout = setTimeout(() => controller.abort(), 2500);
 
   return fetchImpl(url, { signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
+async function fetchChatWithTimeout(
+  config: RuntimeConfig,
+  fetchImpl: FetchLike,
+  url: string,
+  init: RequestInit
+) {
+  const controller = new AbortController();
+  const timeoutMs = config.chatTimeoutMs ?? 120000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetchImpl(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error(
+        `Timed out waiting for ${runtimeLabel(config)} after ${Math.round(
+          timeoutMs / 1000
+        )} seconds. Vision models are large and may be too slow for this machine. Try a smaller text-only task, close other apps, or switch LOCALCOACH_MODEL back to llama3.2:3b.`
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function isAbortError(error: unknown) {
+  return (
+    (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
+}
+
+function runtimeLabel(config: RuntimeConfig) {
+  return config.runtime === 'ollama' ? 'Ollama' : 'the local OpenAI-compatible runtime';
+}
+
+function readChatTimeout(rawValue: string | undefined) {
+  const timeout = Number(rawValue ?? 120000);
+  return Number.isFinite(timeout) && timeout > 0 ? timeout : 120000;
 }
 
 async function* readLines(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {

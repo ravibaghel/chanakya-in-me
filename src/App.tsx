@@ -94,20 +94,41 @@ export default function App() {
     setAttachments([]);
     setIsLoading(true);
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workflowId: selectedWorkflowId,
-        userText: text,
-        attachments,
-        history: chat.slice(-6)
-      })
-    });
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: selectedWorkflowId,
+          userText: text,
+          attachments,
+          history: chat.slice(-6)
+        })
+      });
 
-    const answer = await response.text();
-    setChat([...nextChat, { role: 'assistant', content: answer.trim() }]);
-    setIsLoading(false);
+      const answer = await response.text();
+      setChat([
+        ...nextChat,
+        {
+          role: 'assistant',
+          content:
+            answer.trim() ||
+            'LocalCoach could not get a response from the local model. Please try again.'
+        }
+      ]);
+    } catch (error) {
+      setChat([
+        ...nextChat,
+        {
+          role: 'assistant',
+          content: `LocalCoach could not get a response from the local model. ${
+            error instanceof Error ? error.message : 'Please check the local runtime and try again.'
+          }`
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function addFiles(files: FileList | File[]) {
